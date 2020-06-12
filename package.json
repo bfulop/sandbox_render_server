@@ -9,6 +9,7 @@
     "build:fp": "tsc node_modules/fp-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/fp-ts/es6/ --module es6 --lib ESNext",
     "build:hyper": "tsc node_modules/hyper-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/hyper-ts/es6/ --module es6 --lib ESNext",
     "build:io": "tsc node_modules/io-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/io-ts/es6/ --module es6 --lib ESNext",
+    "build:iotypes": "tsc node_modules/io-ts-types/es6/*.js --allowJs  --outDir ./vanilla/node_modules/io-ts-types/es6/ --module es6 --lib ESNext",
     "start": "nodemon -q --experimental-specifier-resolution=node vanilla/index.js"
   },
   "keywords": [],
