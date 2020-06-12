@@ -5,11 +5,11 @@
   "main": "vanilla/index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "nodemon -q --loader=testdouble --experimental-specifier-resolution=node vanilla/runspecs.js",
     "build:fp": "tsc node_modules/fp-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/fp-ts/es6/ --module es6 --lib ESNext",
     "build:hyper": "tsc node_modules/hyper-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/hyper-ts/es6/ --module es6 --lib ESNext",
-    "test": "nodemon -q --loader=testdouble --experimental-specifier-resolution=node vanilla/runspecs.js",
-    "start": "node --experimental-specifier-resolution=node vanilla/index.js"
+    "build:io": "tsc node_modules/io-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/io-ts/es6/ --module es6 --lib ESNext",
+    "start": "nodemon -q --experimental-specifier-resolution=node vanilla/index.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +18,8 @@
     "express": "^4.17.1",
     "fp-ts": "^2.6.5",
     "hyper-ts": "^0.6.0",
+    "io-ts": "^2.2.4",
+    "io-ts-types": "^0.5.7",
     "playwright": "^1.1.0"
   },
   "devDependencies": {
