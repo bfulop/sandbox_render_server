@@ -6,24 +6,25 @@
   "type": "module",
   "scripts": {
     "test": "nodemon -q --loader=testdouble --experimental-specifier-resolution=node vanilla/runspecs.js",
-    "build:fp": "tsc node_modules/fp-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/fp-ts/es6/ --module es6 --lib ESNext",
-    "build:hyper": "tsc node_modules/hyper-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/hyper-ts/es6/ --module es6 --lib ESNext",
-    "build:io": "tsc node_modules/io-ts/es6/*.js --allowJs  --outDir ./vanilla/node_modules/io-ts/es6/ --module es6 --lib ESNext",
-    "build:iotypes": "tsc node_modules/io-ts-types/es6/*.js --allowJs  --outDir ./vanilla/node_modules/io-ts-types/es6/ --module es6 --lib ESNext",
     "start": "nodemon -q --experimental-specifier-resolution=node vanilla/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@morphic-ts/batteries": "^3.0.0-alpha.0",
+    "esbuild": "^0.8.23",
     "express": "^4.17.1",
-    "fp-ts": "^2.6.5",
+    "fp-ts": "^2.9.1",
     "hyper-ts": "^0.6.0",
-    "io-ts": "^2.2.4",
-    "io-ts-types": "^0.5.7",
-    "playwright": "^1.1.0"
+    "io-ts": "^2.2.13",
+    "io-ts-types": "^0.5.12",
+    "playwright": "^1.7.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.6"
+    "@types/express": "^4.17.9",
+    "ts-node": "^9.1.1",
+    "tslib": "^2.0.3",
+    "typescript": "^4.1.3"
   }
 }

@@ -3,6 +3,13 @@ import { pipe } from 'fp-ts/es6/pipeable';
 import * as t from 'io-ts/es6/index';
 import * as H from 'hyper-ts/es6/index';
 import { toRequestHandler } from 'hyper-ts/es6/express';
+import { summonFor } from '@morphic-ts/batteries/lib/summoner-BASTJ';
+const { summon } = summonFor({}); // Necessary to Specify the config environment (see Config Environment)
+const Person = summon(F => F.interface({
+    name: F.string(),
+    age: F.number()
+}, 'Person'));
+console.log(Person);
 // return a middleware validating the query "order=desc&shoe[color]=blue&shoe[type]=converse"
 const decodePageQuery = pipe(H.decodeQuery(t.strict({ pageid: t.string, }).decode), H.mapLeft(() => 'what'));
 const decodeUser = pipe(H.decodeParam('user_id', t.string.decode), H.mapLeft(() => 'what'));
