@@ -27,10 +27,20 @@ const workflow = flow(Vehicle.build, nbSeats);
 const myresult = workflow({ kind: 'gaz', power: 2, type: 'Car' });
 console.log('result is', myresult().then(r => { console.log('aha', r); }));
 const i = (b) => (deps) => (b ? deps.foo : "imfalse");
+const instance = {
+    foo: 'foo',
+};
 const hAsk = (n) => pipe(ask(), chain(deps => i(!!deps.foo && n)));
 // after
 const result = pipe(ReaderOf('foo'), map(f), map(g), chain(hAsk)
 // chain(b => h(b)),
 // chain(hAsk)
 );
-const pointFreeVersion = flow((a) => ReaderOf(a), map(f), map(g), chain(b => h(b)));
+const pointFreeVersion = flow((a) => ReaderOf(a), map(f), map(g), chain(hAsk));
+const meeeyresult = pointFreeVersion('hello')(instance);
+const mainworkflow = Vehicle.match({
+    Car: ({ kind }) => pointFreeVersion(kind),
+    Bicycle: ({ color }) => pointFreeVersion(color),
+});
+const dowf = flow(Vehicle.build, mainworkflow);
+const dowfDone = dowf({ kind: 'gaz', power: 2, type: 'Car' })(instance);

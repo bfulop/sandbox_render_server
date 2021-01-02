@@ -110,6 +110,9 @@ const i = (b: boolean) => (deps: Dependencies) => (b ? deps.foo : "imfalse")
 interface Dependencies {
   foo: string
 }
+const instance:Dependencies = {
+  foo: 'foo',
+}
 
 const hAsk = (n:boolean): Reader<Dependencies, string> =>
   pipe(
@@ -133,5 +136,19 @@ const pointFreeVersion = flow(
   (a: string) => ReaderOf<Dependencies, string>(a),
   map(f),
   map(g),
-  chain(b => h(b))
+  chain(hAsk)
 )
+
+const meeeyresult = pointFreeVersion('hello')(instance)
+
+const mainworkflow = Vehicle.match({
+  Car: ({ kind }) => pointFreeVersion(kind),
+  Bicycle: ({ color }) => pointFreeVersion(color),
+})
+
+const dowf = flow(
+  Vehicle.build,
+  mainworkflow
+)
+
+const dowfDone = dowf({ kind: 'gaz', power: 2, type: 'Car' })(instance);
