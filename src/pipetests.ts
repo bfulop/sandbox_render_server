@@ -1,17 +1,14 @@
 import { of } from 'rxjs';
-import { filter } from 'rxjs/operators';
-import {Decoder, success, failure, literal, string, sum, type, number, TypeOf } from 'io-ts/es6/Decoder'
-import { isRight } from 'fp-ts/es6/Either'
+import { Decoder, success, failure, literal, string, sum, type, number, TypeOf, union } from 'io-ts/es6/Decoder'
+import { isRight, parseJSON, toError, chain } from 'fp-ts/es6/Either'
 import { fromEither } from 'fp-ts/es6/Option';
 import { pipe, flow } from 'fp-ts/es6/function';
 import { filterMap } from 'fp-ts-rxjs/es6/Observable';
 
 console.clear();
-const mystream = of('a', 'b', 'a', 'b', 'a', {type: 'user', event: {type: 'click', x: 1, y: 2, path: 'what'}});
-const MyLiteral: Decoder<unknown, 'a'> = literal('a')
-const MyBLiteral: Decoder<unknown, 'b'> = literal('b')
+const mystream = of('a', 'b', 'a', 'b', 'a', JSON.stringify({type: 'click', x: 1, y: 2, path: 'what'}));
 
-const UserEvents: Decoder<
+export const UserEvents: Decoder<
   unknown,
   | {
     type: 'mousemove',
@@ -31,22 +28,23 @@ const UserEvents: Decoder<
 
 export type UserEvents = TypeOf<typeof UserEvents>
 
-const KnownEvent: Decoder<
+export const SystemEvents: Decoder<
   unknown,
   | {
-    type: 'system'
-    event: string
+    type: 'DOMpatched'
   }
   | {
-    type: 'user'
-    event: UserEvents
+    type: 'listeningToDOMDiffs'
   }
 > = sum('type')({
-  system: type({ type: literal('system'), event: string }),
-  user: type({ type: literal('user'), event: UserEvents })
+  DOMpatched: type({ type: literal('DOMpatched')}),
+  listeningToDOMDiffs: type({ type: literal('listeningToDOMDiffs')})
 })
 
-export const mystring: Decoder<unknown, string> = {
+export const KnownEvent = union(UserEvents, SystemEvents)
+type KnownEvent = TypeOf<typeof KnownEvent>
+
+const mystring: Decoder<unknown, string> = {
   decode: (u) => (typeof u === 'string' ? success(u) : failure(u, 'string'))
 }
 
@@ -54,26 +52,24 @@ console.log(isRight(KnownEvent.decode({type: 'user', event: {type: 'click', x: 1
 console.log(isRight(UserEvents.decode({type: 'click', x: 1, y: 2, path: 'what'}))) // => true
 console.log(isRight(mystring.decode(null))) // => false
 
-const filteredStream = mystream.pipe(
+const doParseJson = (a: string) => parseJSON(a, toError)
+
+export const KnownEvents$ = pipe(
   filterMap(flow(
-    KnownEvent.decode,
-    fromEither
-  ))
-)
-const filteredStreamB = mystream.pipe(
-  filterMap(flow(
-    MyBLiteral.decode,
+    doParseJson,
+    chain(KnownEvent.decode),
     fromEither
   ))
 )
 
+
 console.log('streampipe')
-filteredStream.subscribe(a => {
+KnownEvents$(mystream).subscribe(a => {
   console.log(a)
 })
-filteredStreamB.subscribe(a => {
-  console.log(a)
-})
+// filteredStreamB.subscribe(a => {
+//   console.log(a)
+// })
 // console.log(streampipe)
 
 

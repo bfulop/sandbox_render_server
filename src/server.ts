@@ -1,12 +1,16 @@
 import { fromEvent, Observable } from 'rxjs';
 import { tap, filter, windowWhen, take, map, mergeAll, pairwise, switchMap } from 'rxjs/operators';
 import WebSocket from 'ws';
+import type { Data } from 'ws';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
+import { Decoder, success, failure, literal } from 'io-ts/es6/Decoder'
+import { KnownEvents$ } from './pipetests'
+
+console.clear()
 
 const diffEngine = new DiffMatchPatch.diff_match_patch();
-
 
 function domDiff(doma: string, domb: string) {
   return diffEngine.diff_main(doma, domb);
@@ -18,35 +22,43 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
   console.log('something connected');
   ws.send('hellowhat');
   ws.send('message');
-  const clientEvents$ = fromEvent(ws, 'message');
-  const clientSystem$ = clientEvents$.pipe(
-    filter(({data}) => data === 'system')
+  const clientEvents$: Observable<WebSocket.MessageEvent> = fromEvent(ws, 'message');
+  const clientSystem$: Observable<string> = clientEvents$.pipe(
+    map(e => e.data),
+    filter(e => typeof e === 'string')
   );
-  clientSystem$.subscribe(what => {
-    console.log('uievents system', what.data);
+  clientSystem$.subscribe(e => {
+    console.log('clientEvents$', e)
   })
-  const clientSynced$ = clientSystem$.pipe(filter((data) => data === 'synced'));
-  const throttledMutations$ = DOMMutations$.pipe(
-    windowWhen(() => clientSynced$),
-    map((win) => win.pipe(take(1))),
-    mergeAll()
-  );
-  const DOM$ = throttledMutations$.pipe(
-    map(() => {return Promise.resolve('<html>the page</html>')}),
-    mergeAll()
-  )
-  const DOMPairs$ = DOM$.pipe(pairwise());
-  const DOMDiffs$ = DOMPairs$.pipe(
-    map(([prev, curr]) => {
-      return domDiff(prev, curr)
-    })
-  )
-  DOMMutations$.subscribe((mutationcount) => {
-    ws.send(JSON.stringify({_type:'dommutation', count: mutationcount}))
-  });
-  DOMDiffs$.subscribe((domdiff) => {
-    ws.send(JSON.stringify({_type:'domdiff', count: domdiff}))
+  const handleableEvents$ = KnownEvents$(clientSystem$)
+  handleableEvents$.subscribe(e => {
+    console.log('handleable', e)
   })
+  // clientSystem$.subscribe(what => {
+  //   console.log('uievents system', what.data);
+  // })
+  // const clientSynced$ = clientSystem$.pipe(filter((data) => data === 'synced'));
+  // const throttledMutations$ = DOMMutations$.pipe(
+  //   windowWhen(() => clientSynced$),
+  //   map((win) => win.pipe(take(1))),
+  //   mergeAll()
+  // );
+  // const DOM$ = throttledMutations$.pipe(
+  //   map(() => {return Promise.resolve('<html>the page</html>')}),
+  //   mergeAll()
+  // )
+  // const DOMPairs$ = DOM$.pipe(pairwise());
+  // const DOMDiffs$ = DOMPairs$.pipe(
+  //   map(([prev, curr]) => {
+  //     return domDiff(prev, curr)
+  //   })
+  // )
+  // DOMMutations$.subscribe((mutationcount) => {
+  //   ws.send(JSON.stringify({_type:'dommutation', count: mutationcount}))
+  // });
+  // DOMDiffs$.subscribe((domdiff) => {
+  //   ws.send(JSON.stringify({_type:'domdiff', count: domdiff}))
+  // })
 };
 
 (async () => {
@@ -85,7 +97,6 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
     };
   });
 
-  const wss = new WebSocket.Server({ port: 8080 });
-  console.log('run websocket server')
+  const wss = new WebSocket.Server({ port: 8088 });
   wss.on('connection', remoteRender(page, mutationObservable));
 })();

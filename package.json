@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "nodemon -q --loader=testdouble --experimental-specifier-resolution=node vanilla/runspecs.js",
-    "start": "nodemon -q --experimental-specifier-resolution=node vanilla/pipetests.js"
+    "start": "nodemon -q --experimental-specifier-resolution=node vanilla/server.js"
   },
   "keywords": [],
   "author": "",
