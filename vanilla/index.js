@@ -1,5 +1,5 @@
 import express from 'express';
-import { pipe } from 'fp-ts/es6/pipeable';
+import { pipe } from 'fp-ts/es6/function';
 import * as t from 'io-ts/es6/index';
 import * as H from 'hyper-ts/es6/index';
 import { toRequestHandler } from 'hyper-ts/es6/express';
