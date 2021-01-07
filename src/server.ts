@@ -1,12 +1,10 @@
 import { fromEvent, Observable } from 'rxjs';
-import { tap, filter, windowWhen, take, map, mergeAll, pairwise, switchMap } from 'rxjs/operators';
+import { map  } from 'rxjs/operators';
 import WebSocket from 'ws';
-import type { Data } from 'ws';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
-import { Decoder, success, failure, literal } from 'io-ts/es6/Decoder'
-import { KnownEvents$ } from './pipetests'
+import { userEvents$ } from './pipetests'
 
 console.clear()
 
@@ -23,15 +21,11 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
   ws.send('hellowhat');
   ws.send('message');
   const clientEvents$: Observable<WebSocket.MessageEvent> = fromEvent(ws, 'message');
-  const clientSystem$: Observable<string> = clientEvents$.pipe(
+  const clientSystem$ = clientEvents$.pipe(
     map(e => e.data),
-    filter(e => typeof e === 'string')
-  );
-  clientSystem$.subscribe(e => {
-    console.log('clientEvents$', e)
-  })
-  const handleableEvents$ = KnownEvents$(clientSystem$)
-  handleableEvents$.subscribe(e => {
+    userEvents$
+  )
+  clientSystem$.subscribe((e) => {
     console.log('handleable', e)
   })
   // clientSystem$.subscribe(what => {

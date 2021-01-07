@@ -27,7 +27,6 @@ import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import type { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import { map as mapOE } from 'fp-ts-rxjs/es6/ObservableEither';
 
-console.clear();
 const mystream = of(
   'a',
   'b',

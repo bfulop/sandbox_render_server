@@ -5,7 +5,6 @@ import { fromEither } from 'fp-ts/es6/Option';
 import { pipe } from 'fp-ts/es6/function';
 import { filterMap, map as mapO } from 'fp-ts-rxjs/es6/Observable';
 import { map as mapOE } from 'fp-ts-rxjs/es6/ObservableEither';
-console.clear();
 const mystream = of('a', 'b', 3, 'a', 5, 'b', 'a', JSON.stringify({ type: 'click', x: 1, y: 2, path: 'what' }), JSON.stringify({ umbrella: 'potatoes' }));
 export const UserEvents = sum('type')({
     mousemove: type({ type: literal('mousemove'), x: number, y: number }),

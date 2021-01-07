@@ -1,9 +1,9 @@
 import { fromEvent, Observable } from 'rxjs';
-import { filter, map } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import WebSocket from 'ws';
 import { chromium } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
-import { KnownEvents$ } from './pipetests';
+import { userEvents$ } from './pipetests';
 console.clear();
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 function domDiff(doma, domb) {
@@ -14,12 +14,8 @@ const remoteRender = (pageContext, DOMMutations$) => (ws) => {
     ws.send('hellowhat');
     ws.send('message');
     const clientEvents$ = fromEvent(ws, 'message');
-    const clientSystem$ = clientEvents$.pipe(map(e => e.data), filter(e => typeof e === 'string'));
-    clientSystem$.subscribe(e => {
-        console.log('clientEvents$', e);
-    });
-    const handleableEvents$ = KnownEvents$(clientSystem$);
-    handleableEvents$.subscribe(e => {
+    const clientSystem$ = clientEvents$.pipe(map(e => e.data), userEvents$);
+    clientSystem$.subscribe((e) => {
         console.log('handleable', e);
     });
     // clientSystem$.subscribe(what => {
