@@ -3,7 +3,7 @@ import { map } from 'rxjs/operators';
 import WebSocket from 'ws';
 import { chromium } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
-import { userEvents$ } from './pipetests';
+import { toKnownEvents$, toUserEvents$, decodedEvents$, } from './decodeClientEvents';
 console.clear();
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 function domDiff(doma, domb) {
@@ -14,9 +14,10 @@ const remoteRender = (pageContext, DOMMutations$) => (ws) => {
     ws.send('hellowhat');
     ws.send('message');
     const clientEvents$ = fromEvent(ws, 'message');
-    const clientSystem$ = clientEvents$.pipe(map(e => e.data), userEvents$);
-    clientSystem$.subscribe((e) => {
-        console.log('handleable', e);
+    const handledEvents$ = clientEvents$.pipe(map((e) => e.data), toKnownEvents$);
+    const userEvents$ = handledEvents$.pipe(toUserEvents$, decodedEvents$);
+    userEvents$.subscribe((e) => {
+        console.log('user Event received:', e);
     });
     // clientSystem$.subscribe(what => {
     //   console.log('uievents system', what.data);
@@ -67,7 +68,7 @@ const remoteRender = (pageContext, DOMMutations$) => (ws) => {
     });
     let mutationObservable = new Observable((observer) => {
         let mutationsCount = 0;
-        page.on('console', msg => {
+        page.on('console', (msg) => {
             const message = msg.text();
             if (message === '__mutation') {
                 mutationsCount += 1;

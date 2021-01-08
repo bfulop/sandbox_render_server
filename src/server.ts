@@ -1,12 +1,17 @@
 import { fromEvent, Observable } from 'rxjs';
-import { map  } from 'rxjs/operators';
+import { map } from 'rxjs/operators';
 import WebSocket from 'ws';
 import { chromium } from 'playwright';
 import type { Page } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
-import { userEvents$ } from './pipetests'
+import {
+  toKnownEvents$,
+  toSystemEvents$,
+  toUserEvents$,
+  decodedEvents$,
+} from './decodeClientEvents';
 
-console.clear()
+console.clear();
 
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 
@@ -20,14 +25,21 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
   console.log('something connected');
   ws.send('hellowhat');
   ws.send('message');
-  const clientEvents$: Observable<WebSocket.MessageEvent> = fromEvent(ws, 'message');
-  const clientSystem$ = clientEvents$.pipe(
-    map(e => e.data),
-    userEvents$
+  const clientEvents$: Observable<WebSocket.MessageEvent> = fromEvent(
+    ws,
+    'message'
+  );
+  const handledEvents$ = clientEvents$.pipe(
+    map((e) => e.data),
+    toKnownEvents$
+  );
+  const userEvents$ = handledEvents$.pipe(
+    toUserEvents$,
+    decodedEvents$
   )
-  clientSystem$.subscribe((e) => {
-    console.log('handleable', e)
-  })
+  userEvents$.subscribe((e) => {
+    console.log('user Event received:', e);
+  });
   // clientSystem$.subscribe(what => {
   //   console.log('uievents system', what.data);
   // })
@@ -57,13 +69,13 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
 
 (async () => {
   const browser = await chromium.launch();
-  console.log('launching browser')
+  console.log('launching browser');
   // Create a new incognito browser context
   const context = await browser.newContext();
   // Create a new page inside context.
   const page = await context.newPage();
   await page.goto('https://abtastyspa.bfulop.now.sh');
-  console.log('went to page')
+  console.log('went to page');
   await page.evaluate(() => {
     const observer = new MutationObserver(function () {
       console.log('__mutation');
@@ -79,13 +91,13 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
 
   let mutationObservable = new Observable<number>((observer) => {
     let mutationsCount = 0;
-    page.on('console', msg => {
+    page.on('console', (msg) => {
       const message = msg.text();
-      if(message === '__mutation') {
-        mutationsCount += 1
+      if (message === '__mutation') {
+        mutationsCount += 1;
         observer.next(mutationsCount);
       }
-    })
+    });
     return () => {
       mutationsCount = 0;
     };
