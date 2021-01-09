@@ -1,7 +1,7 @@
 import { fromEvent, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import WebSocket from 'ws';
-import { chromium } from 'playwright';
+import { Browser, BrowserContext, chromium } from 'playwright';
 import type { Page } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
 import {
@@ -10,6 +10,8 @@ import {
   toUserEvents$,
   decodedEvents$,
 } from './decodeClientEvents';
+import { bindTo, Task } from 'fp-ts/es6/Task';
+import { pipe } from 'fp-ts/es6/function';
 
 console.clear();
 
@@ -38,7 +40,14 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
     decodedEvents$
   )
   userEvents$.subscribe((e) => {
-    console.log('user Event received:', e);
+    console.log('USER Event received:', e);
+  });
+  const systemEvents$ = handledEvents$.pipe(
+    toSystemEvents$,
+    decodedEvents$
+  )
+  systemEvents$.subscribe((e) => {
+    console.log('SYSTEM Event received:', e);
   });
   // clientSystem$.subscribe(what => {
   //   console.log('uievents system', what.data);
@@ -66,6 +75,14 @@ const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
   //   ws.send(JSON.stringify({_type:'domdiff', count: domdiff}))
   // })
 };
+
+const launchBrowser: Task<Browser> = () => {
+  return chromium.launch();
+}
+
+// const launchBrowser = () => pipe(
+//   bindTo('browser')()
+// )
 
 (async () => {
   const browser = await chromium.launch();

@@ -3,7 +3,7 @@ import { map } from 'rxjs/operators';
 import WebSocket from 'ws';
 import { chromium } from 'playwright';
 import DiffMatchPatch from 'diff-match-patch';
-import { toKnownEvents$, toUserEvents$, decodedEvents$, } from './decodeClientEvents';
+import { toKnownEvents$, toSystemEvents$, toUserEvents$, decodedEvents$, } from './decodeClientEvents';
 console.clear();
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 function domDiff(doma, domb) {
@@ -17,7 +17,11 @@ const remoteRender = (pageContext, DOMMutations$) => (ws) => {
     const handledEvents$ = clientEvents$.pipe(map((e) => e.data), toKnownEvents$);
     const userEvents$ = handledEvents$.pipe(toUserEvents$, decodedEvents$);
     userEvents$.subscribe((e) => {
-        console.log('user Event received:', e);
+        console.log('USER Event received:', e);
+    });
+    const systemEvents$ = handledEvents$.pipe(toSystemEvents$, decodedEvents$);
+    systemEvents$.subscribe((e) => {
+        console.log('SYSTEM Event received:', e);
     });
     // clientSystem$.subscribe(what => {
     //   console.log('uievents system', what.data);
@@ -45,6 +49,12 @@ const remoteRender = (pageContext, DOMMutations$) => (ws) => {
     //   ws.send(JSON.stringify({_type:'domdiff', count: domdiff}))
     // })
 };
+const launchBrowser = () => {
+    return chromium.launch();
+};
+// const launchBrowser = () => pipe(
+//   bindTo('browser')()
+// )
 (async () => {
     const browser = await chromium.launch();
     console.log('launching browser');

@@ -2,21 +2,21 @@ import express from 'express';
 import { pipe } from 'fp-ts/es6/function';
 import * as t from 'io-ts/es6/index';
 import * as H from 'hyper-ts/es6/index';
+import * as TE from 'fp-ts/es6/TaskEither';
 import { toRequestHandler } from 'hyper-ts/es6/express';
-import { summonFor } from '@morphic-ts/batteries/lib/summoner-BASTJ';
-const { summon } = summonFor({}); // Necessary to Specify the config environment (see Config Environment)
-const Person = summon(F => F.interface({
-    name: F.string(),
-    age: F.number()
-}, 'Person'));
-console.log(Person);
+import { IntFromString } from 'io-ts-types/lib/IntFromString';
+const connections = new Map();
 // return a middleware validating the query "order=desc&shoe[color]=blue&shoe[type]=converse"
-const decodePageQuery = pipe(H.decodeQuery(t.strict({ pageid: t.string, }).decode), H.mapLeft(() => 'what'));
+const decodePageQuery = pipe(H.decodeQuery(t.strict({ pageid: t.string, }).decode), H.mapLeft(() => 'cannotdecode'));
+const paramDecode = pipe(H.decodeParam('question_id', IntFromString.decode));
+const someTask = () => TE.of('mySomeTask');
+const safeAsync = (apageid) => TE.tryCatch(() => Promise.resolve({ second: apageid + 'second' }), () => 'eerr');
+const doAPIWork = (pageid) => H.fromTaskEither(safeAsync(pageid));
 const decodeUser = pipe(H.decodeParam('user_id', t.string.decode), H.mapLeft(() => 'what'));
 function badRequest(message) {
-    return pipe(H.status(H.Status.BadRequest), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(message)));
+    return pipe(H.status(H.Status.BadRequest), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send('bad request ' + message)));
 }
-const hello = pipe(decodePageQuery, H.ichain(({ pageid }) => pipe(H.status(H.Status.OK), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(`Hello ${pageid}!`)))), H.orElse(badRequest));
+const hello = pipe(decodePageQuery, H.chain(({ pageid }) => doAPIWork(pageid)), H.ichain(({ second }) => pipe(H.status(H.Status.OK), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(`Hello decoded, ${second}`)))), H.orElse(badRequest));
 const app = express();
 app
     .get('/getpage', toRequestHandler(hello))

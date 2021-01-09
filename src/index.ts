@@ -3,28 +3,31 @@ import * as E from 'fp-ts/es6/Either'
 import { pipe } from 'fp-ts/es6/function'
 import * as t from 'io-ts/es6/index'
 import * as H from 'hyper-ts/es6/index'
+import * as TE from 'fp-ts/es6/TaskEither'
 import { toRequestHandler } from 'hyper-ts/es6/express'
-import { summonFor } from '@morphic-ts/batteries/lib/summoner-BASTJ'
+import { IntFromString } from 'io-ts-types/lib/IntFromString'
 
-const { summon } = summonFor<{}>({}) // Necessary to Specify the config environment (see Config Environment)
-
-const Person = summon(F =>
-  F.interface(
-    {
-      name: F.string(),
-      age: F.number()
-    },
-    'Person'
-  )
-)
-console.log(Person);
-
+const connections = new Map();
 
 // return a middleware validating the query "order=desc&shoe[color]=blue&shoe[type]=converse"
 const decodePageQuery: H.Middleware<H.StatusOpen, H.StatusOpen, string, {pageid: string}> = pipe(
   H.decodeQuery( t.strict({ pageid: t.string, }).decode),
-  H.mapLeft(() => 'what')
+  H.mapLeft(() => 'cannotdecode')
 )
+
+const paramDecode = pipe(
+ H.decodeParam('question_id', IntFromString.decode),
+)
+
+const someTask = () => TE.of('mySomeTask');
+
+
+const safeAsync = (apageid:string):TE.TaskEither<string, {  second:string}> => TE.tryCatch(
+  (): Promise<{second:string}> => Promise.resolve({ second: apageid + 'second'}),
+  () => 'eerr',
+)
+
+const doAPIWork = (pageid: string) => H.fromTaskEither(safeAsync(pageid))
 
 const decodeUser: H.Middleware<H.StatusOpen, H.StatusOpen, string, string> = pipe(
   H.decodeParam('user_id', t.string.decode),
@@ -35,17 +38,18 @@ function badRequest(message: string): H.Middleware<H.StatusOpen, H.ResponseEnded
   return pipe(
     H.status(H.Status.BadRequest),
     H.ichain(() => H.closeHeaders()),
-    H.ichain(() => H.send(message))
+    H.ichain(() => H.send('bad request ' + message))
   )
 }
 
 const hello = pipe(
   decodePageQuery,
-  H.ichain(({ pageid }) =>
+  H.chain(({pageid}) => doAPIWork(pageid)),
+  H.ichain(({second}) =>
     pipe(
       H.status<string>(H.Status.OK),
       H.ichain(() => H.closeHeaders()),
-      H.ichain(() => H.send(`Hello ${pageid}!`))
+      H.ichain(() => H.send(`Hello decoded, ${second}`))
     )
   ),
   H.orElse(badRequest)
