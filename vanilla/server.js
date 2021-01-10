@@ -9,10 +9,7 @@ const diffEngine = new DiffMatchPatch.diff_match_patch();
 function domDiff(doma, domb) {
     return diffEngine.diff_main(doma, domb);
 }
-const remoteRender = (pageContext, DOMMutations$) => (ws) => {
-    console.log('something connected');
-    ws.send('hellowhat');
-    ws.send('message');
+export const remoteRender = (ws, url) => {
     const clientEvents$ = fromEvent(ws, 'message');
     const handledEvents$ = clientEvents$.pipe(map((e) => e.data), toKnownEvents$);
     const userEvents$ = handledEvents$.pipe(toUserEvents$, decodedEvents$);
@@ -90,5 +87,9 @@ const launchBrowser = () => {
         };
     });
     const wss = new WebSocket.Server({ port: 8088 });
-    wss.on('connection', remoteRender(page, mutationObservable));
-})();
+    wss.on('connection', (what, req) => {
+        console.log('********************************************what is req');
+        console.log(req.url);
+    });
+    // wss.on('connection', remoteRender(page, mutationObservable));
+});

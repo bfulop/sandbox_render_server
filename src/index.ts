@@ -1,51 +1,77 @@
-import express from 'express'
-import * as E from 'fp-ts/es6/Either'
-import { pipe } from 'fp-ts/es6/function'
-import * as t from 'io-ts/es6/index'
-import * as H from 'hyper-ts/es6/index'
-import * as TE from 'fp-ts/es6/TaskEither'
-import { toRequestHandler } from 'hyper-ts/es6/express'
-import { IntFromString } from 'io-ts-types/lib/IntFromString'
+import express from 'express';
+import * as E from 'fp-ts/es6/Either';
+import { pipe } from 'fp-ts/es6/function';
+import * as t from 'io-ts/es6/index';
+import * as H from 'hyper-ts/es6/index';
+import * as TE from 'fp-ts/es6/TaskEither';
+import { toRequestHandler } from 'hyper-ts/es6/express';
+import { IntFromString } from 'io-ts-types/lib/IntFromString';
+import { Browser, BrowserContext, chromium } from 'playwright';
+import WebSocket from 'ws';
+import { addClient, getClient } from './connections';
+import { getPage } from './getBrowserPage';
+import { remoteRender } from './server';
 
-const connections = new Map();
+const browser = await chromium.launch();
+const wss = new WebSocket.Server({ port: 8088 });
+wss.on('connection', (ws, { url }) => remoteRender(ws, url));
 
 // return a middleware validating the query "order=desc&shoe[color]=blue&shoe[type]=converse"
-const decodePageQuery: H.Middleware<H.StatusOpen, H.StatusOpen, string, {pageid: string}> = pipe(
-  H.decodeQuery( t.strict({ pageid: t.string, }).decode),
-  H.mapLeft(() => 'cannotdecode')
-)
-
-const paramDecode = pipe(
- H.decodeParam('question_id', IntFromString.decode),
-)
-
-const someTask = () => TE.of('mySomeTask');
-
-
-const safeAsync = (apageid:string):TE.TaskEither<string, {  second:string}> => TE.tryCatch(
-  (): Promise<{second:string}> => Promise.resolve({ second: apageid + 'second'}),
-  () => 'eerr',
-)
-
-const doAPIWork = (pageid: string) => H.fromTaskEither(safeAsync(pageid))
-
-const decodeUser: H.Middleware<H.StatusOpen, H.StatusOpen, string, string> = pipe(
-  H.decodeParam('user_id', t.string.decode),
-  H.mapLeft(() => 'what')
+const decodePageQuery: H.Middleware<
+  H.StatusOpen,
+  H.StatusOpen,
+  string,
+  { pageurl: string }
+> = pipe(
+  H.decodeQuery(t.strict({ pageurl: t.string }).decode),
+  H.mapLeft(() => 'could not decode requested page url')
 );
 
-function badRequest(message: string): H.Middleware<H.StatusOpen, H.ResponseEnded, never, void> {
+const safeAsync = (
+  apageurl: string
+): TE.TaskEither<string, { second: string }> =>
+  TE.tryCatch(
+    (): Promise<{ second: string }> =>
+      Promise.resolve({ second: apageurl + 'second' }),
+    () => 'eerr'
+  );
+
+// the workflow:
+// pass the dependencies: chromeBrowser
+// launches a context, goes to the page, returns the DOM
+// save the client (addClient)
+// return the ID
+
+const createBrowserContext = (b: Browser) => (u: string) =>
+  pipe(
+    getPage(b)(u),
+    TE.map((e) => addClient(e)),
+    TE.mapLeft(() => 'error creating browser context')
+  );
+
+// then on wss connection:
+// get the client, based on the uuid
+// create the mutation stream
+// create the client streams
+// process the streams
+
+function badRequest(
+  message: string
+): H.Middleware<H.StatusOpen, H.ResponseEnded, never, void> {
   return pipe(
     H.status(H.Status.BadRequest),
     H.ichain(() => H.closeHeaders()),
     H.ichain(() => H.send('bad request ' + message))
-  )
+  );
 }
 
-const hello = pipe(
+const doAPIWork = (browser: Browser) => (pageurl: string) =>
+  H.fromTaskEither(createBrowserContext(browser)(pageurl));
+
+const getWebSiteHandler = pipe(
   decodePageQuery,
-  H.chain(({pageid}) => doAPIWork(pageid)),
-  H.ichain(({second}) =>
+  H.chain(({ pageurl }) => doAPIWork(browser)(pageurl)),
+  H.ichain((second) =>
     pipe(
       H.status<string>(H.Status.OK),
       H.ichain(() => H.closeHeaders()),
@@ -53,11 +79,12 @@ const hello = pipe(
     )
   ),
   H.orElse(badRequest)
-)
+);
 
-const app = express()
+const app = express();
 
 app
-  .get('/getpage', toRequestHandler(hello))
-  // tslint:disable-next-line: no-console
-  .listen(3000, () => console.log('Express listening on port 3000. Use: POST /'))
+  .get('/getpage', toRequestHandler(getWebSiteHandler))
+  .listen(3000, () =>
+    console.log('Express listening on port 3000. Use: POST /')
+  );

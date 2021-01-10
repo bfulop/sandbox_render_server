@@ -23,8 +23,7 @@ const oneMore = (a: number): T.Task<number> => () => {
 const myflow = pipe(
   T.bindTo('first')(parameterStuff(2)),
   T.bind('second', ({first}) => another(first)),
-  T.bind('third', ({second}) => oneMore(second)),
-  T.map(({third}) => third)
+  T.chain(({second}) => oneMore(second))
 )
 
 myflow().then(e => console.log(e))

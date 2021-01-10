@@ -21,12 +21,7 @@ function domDiff(doma: string, domb: string) {
   return diffEngine.diff_main(doma, domb);
 }
 
-const remoteRender = (pageContext: Page, DOMMutations$: Observable<number>) => (
-  ws: WebSocket
-) => {
-  console.log('something connected');
-  ws.send('hellowhat');
-  ws.send('message');
+export const remoteRender = (ws: WebSocket, url: string | undefined) => {
   const clientEvents$: Observable<WebSocket.MessageEvent> = fromEvent(
     ws,
     'message'
@@ -121,5 +116,9 @@ const launchBrowser: Task<Browser> = () => {
   });
 
   const wss = new WebSocket.Server({ port: 8088 });
-  wss.on('connection', remoteRender(page, mutationObservable));
-})();
+  wss.on('connection', (what, req) => {
+    console.log('********************************************what is req')
+    console.log(req.url)
+  })
+  // wss.on('connection', remoteRender(page, mutationObservable));
+});

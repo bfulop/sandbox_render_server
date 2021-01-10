@@ -4,21 +4,34 @@ import * as t from 'io-ts/es6/index';
 import * as H from 'hyper-ts/es6/index';
 import * as TE from 'fp-ts/es6/TaskEither';
 import { toRequestHandler } from 'hyper-ts/es6/express';
-import { IntFromString } from 'io-ts-types/lib/IntFromString';
-const connections = new Map();
+import { chromium } from 'playwright';
+import WebSocket from 'ws';
+import { addClient } from './connections';
+import { getPage } from './getBrowserPage';
+import { remoteRender } from './server';
+const browser = await chromium.launch();
+const wss = new WebSocket.Server({ port: 8088 });
+wss.on('connection', (ws, { url }) => remoteRender(ws, url));
 // return a middleware validating the query "order=desc&shoe[color]=blue&shoe[type]=converse"
-const decodePageQuery = pipe(H.decodeQuery(t.strict({ pageid: t.string, }).decode), H.mapLeft(() => 'cannotdecode'));
-const paramDecode = pipe(H.decodeParam('question_id', IntFromString.decode));
-const someTask = () => TE.of('mySomeTask');
-const safeAsync = (apageid) => TE.tryCatch(() => Promise.resolve({ second: apageid + 'second' }), () => 'eerr');
-const doAPIWork = (pageid) => H.fromTaskEither(safeAsync(pageid));
-const decodeUser = pipe(H.decodeParam('user_id', t.string.decode), H.mapLeft(() => 'what'));
+const decodePageQuery = pipe(H.decodeQuery(t.strict({ pageurl: t.string }).decode), H.mapLeft(() => 'could not decode requested page url'));
+const safeAsync = (apageurl) => TE.tryCatch(() => Promise.resolve({ second: apageurl + 'second' }), () => 'eerr');
+// the workflow:
+// pass the dependencies: chromeBrowser
+// launches a context, goes to the page, returns the DOM
+// save the client (addClient)
+// return the ID
+const createBrowserContext = (b) => (u) => pipe(getPage(b)(u), TE.map((e) => addClient(e)), TE.mapLeft(() => 'error creating browser context'));
+// then on wss connection:
+// get the client, based on the uuid
+// create the mutation stream
+// create the client streams
+// process the streams
 function badRequest(message) {
     return pipe(H.status(H.Status.BadRequest), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send('bad request ' + message)));
 }
-const hello = pipe(decodePageQuery, H.chain(({ pageid }) => doAPIWork(pageid)), H.ichain(({ second }) => pipe(H.status(H.Status.OK), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(`Hello decoded, ${second}`)))), H.orElse(badRequest));
+const doAPIWork = (browser) => (pageurl) => H.fromTaskEither(createBrowserContext(browser)(pageurl));
+const getWebSiteHandler = pipe(decodePageQuery, H.chain(({ pageurl }) => doAPIWork(browser)(pageurl)), H.ichain((second) => pipe(H.status(H.Status.OK), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(`Hello decoded, ${second}`)))), H.orElse(badRequest));
 const app = express();
 app
-    .get('/getpage', toRequestHandler(hello))
-    // tslint:disable-next-line: no-console
+    .get('/getpage', toRequestHandler(getWebSiteHandler))
     .listen(3000, () => console.log('Express listening on port 3000. Use: POST /'));

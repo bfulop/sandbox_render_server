@@ -12,5 +12,5 @@ const another = (a) => () => {
 const oneMore = (a) => () => {
     return Promise.resolve(a + 2);
 };
-const myflow = pipe(T.bindTo('first')(parameterStuff(2)), T.bind('second', ({ first }) => another(first)), T.bind('third', ({ second }) => oneMore(second)), T.map(({ third }) => third));
+const myflow = pipe(T.bindTo('first')(parameterStuff(2)), T.bind('second', ({ first }) => another(first)), T.chain(({ second }) => oneMore(second)));
 myflow().then(e => console.log(e));
