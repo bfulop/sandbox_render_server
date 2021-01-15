@@ -23,7 +23,9 @@ const loadUrl = (p: Page): ((a: string) => T.Task<Response | null>) => (
   return p.goto(url);
 };
 
-export const getPageContent = (p: Page): T.Task<string> => () => {
+export type DOMString = string;
+
+export const getPageContent = (p: Page): T.Task<DOMString> => () => {
   return p.content();
 }
 

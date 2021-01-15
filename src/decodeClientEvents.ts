@@ -1,4 +1,5 @@
 import { of, Observable } from 'rxjs';
+import { filter, map } from 'rxjs/operators'
 import {
   Decoder,
   success,
@@ -31,13 +32,13 @@ import { map as mapOE, chain as chainOE } from 'fp-ts-rxjs/es6/ObservableEither'
 console.clear();
 
 const mystream = of(
-  'a',
-  'b',
-  3,
-  'a',
-  5,
-  'b',
-  'a',
+  // 'a',
+  // 'b',
+  // 3,
+  // 'a',
+  // 5,
+  // 'b',
+  // 'a',
   JSON.stringify({ type: 'click', x: 1, y: 2, path: 'what' }),
   JSON.stringify({ umbrella: 'potatoes' }),
   JSON.stringify({ type: 'DOMpatched' })
@@ -59,7 +60,7 @@ export const UserEvents: Decoder<unknown, mousemove | click> = sum('type')({
   click: type({ type: literal('click'), x: number, y: number, path: string }),
 });
 
-type UserEvents = mousemove | click;
+export type UserEvents = mousemove | click;
 
 type DOMpatched = {
   type: 'DOMpatched';
@@ -69,7 +70,7 @@ type listeningToDOMDiffs = {
   type: 'listeningToDOMDiffs';
 };
 
-type SystemEvents = DOMpatched | listeningToDOMDiffs;
+export type SystemEvents = DOMpatched | listeningToDOMDiffs;
 
 export const SystemEvents: Decoder<
   unknown,
@@ -79,7 +80,7 @@ export const SystemEvents: Decoder<
   listeningToDOMDiffs: type({ type: literal('listeningToDOMDiffs') }),
 });
 
-type HandledEvents = UserEvents | SystemEvents;
+export type HandledEvents = UserEvents | SystemEvents;
 
 export const KnownEvent = union(UserEvents, SystemEvents);
 export type KnownEvent = TypeOf<typeof KnownEvent>;
@@ -110,10 +111,6 @@ export const decodedEvents$ = <T>(
   stream: ObservableEither<Error, T>
 ): Observable<T> => pipe(stream, filterMap(fromEither));
 
-// export const knowEvents$ = (
-//   stream: Observable<unknown>
-// ): Observable<HandledEvents> => pipe(stream, toKnownEvents$, decodedEvents$);
-
 const decodeUserEvents = (
   a: HandledEvents
 ): Either<Error, UserEvents> =>  UserEvents.decode(a)
@@ -129,7 +126,7 @@ export const toUserEvents$ = (
 
 const decodeSystemEvents = (
   a: HandledEvents
-): Either<Error, SystemEvents> =>  UserEvents.decode(a)
+): Either<Error, SystemEvents> =>  SystemEvents.decode(a)
 
 export const toSystemEvents$ = (
   stream: ObservableEither<Error, HandledEvents>
@@ -139,6 +136,11 @@ export const toSystemEvents$ = (
     mapOE(e => decodeSystemEvents(e)), 
     filterMap(fromEither)
   );
+
+export const domPatched$ = (stream: Observable<SystemEvents>): Observable<SystemEvents> => pipe(
+  stream,
+  filter(e => e.type === 'DOMpatched'),
+)
 
 console.log('  ---------------  streampipe  ---------------  ');
 pipe(mystream, toKnownEvents$, decodedEvents$).subscribe((e) => {

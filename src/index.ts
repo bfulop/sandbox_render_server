@@ -8,7 +8,7 @@ import { toRequestHandler } from 'hyper-ts/es6/express';
 import { IntFromString } from 'io-ts-types/lib/IntFromString';
 import { Browser, BrowserContext, chromium } from 'playwright';
 import WebSocket from 'ws';
-import { addClient, getClient } from './connections';
+import { addClient } from './connections';
 import { getPage } from './getBrowserPage';
 import { remoteRender } from './server';
 
@@ -45,8 +45,7 @@ const safeAsync = (
 const createBrowserContext = (b: Browser) => (u: string) =>
   pipe(
     getPage(b)(u),
-    TE.map((e) => addClient(e)),
-    TE.mapLeft(() => 'error creating browser context')
+    TE.bimap(() => 'error creating browser context', (e) => addClient(e)),
   );
 
 // then on wss connection:
@@ -75,7 +74,7 @@ const getWebSiteHandler = pipe(
     pipe(
       H.status<string>(H.Status.OK),
       H.ichain(() => H.closeHeaders()),
-      H.ichain(() => H.send(`Hello decoded, ${second}`))
+      H.ichain(() => H.send(`Hello decoded, ${second()}`))
     )
   ),
   H.orElse(badRequest)
