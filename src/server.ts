@@ -42,8 +42,6 @@ import { getPageContent } from './getBrowserPage';
 import type { DOMString } from './getBrowserPage';
 import { fromTask } from 'fp-ts-rxjs/es6/Observable';
 
-console.clear();
-
 interface PrimaryData {
   client: aConncection;
   domMutations: Observable<number>;

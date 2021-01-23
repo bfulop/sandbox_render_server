@@ -13,10 +13,10 @@ export type aConncection = {
   context: BrowserContext;
 };
 
-export const addClient = (clientContext: aConncection): IO<UUID> => () => {
+export const addClient = (clientContext: aConncection): IO<{id: UUID, DOMString: string}> => () => {
   const id = uuidv4() as UUID;
   connections.set(id, clientContext);
-  return id;
+  return {id, DOMString: clientContext.DOMstring};
 };
 
 export const getClient = (id: UUID): IO<Option<aConncection>> => () =>
