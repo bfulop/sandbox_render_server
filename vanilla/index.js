@@ -9,29 +9,24 @@ import WebSocket from 'ws';
 import { addClient } from './connections';
 import { getPage } from './getBrowserPage';
 import { remoteRender } from './server';
+console.clear();
 const browser = await chromium.launch();
 const wss = new WebSocket.Server({ port: 8088 });
 wss.on('connection', (ws, { url }) => remoteRender(ws, url));
 // return a middleware validating the query "order=desc&shoe[color]=blue&shoe[type]=converse"
 const decodePageQuery = pipe(H.decodeQuery(t.strict({ pageurl: t.string }).decode), H.mapLeft(() => 'could not decode requested page url'));
 const safeAsync = (apageurl) => TE.tryCatch(() => Promise.resolve({ second: apageurl + 'second' }), () => 'eerr');
-// the workflow:
-// pass the dependencies: chromeBrowser
-// launches a context, goes to the page, returns the DOM
-// save the client (addClient)
-// return the ID
-const createBrowserContext = (b) => (u) => pipe(getPage(b)(u), TE.map((e) => addClient(e)), TE.mapLeft(() => 'error creating browser context'));
-// then on wss connection:
-// get the client, based on the uuid
-// create the mutation stream
-// create the client streams
-// process the streams
+const createBrowserContext = (b) => (u) => pipe(getPage(b)(u), TE.bimap(() => 'error creating browser context', (e) => addClient(e)));
 function badRequest(message) {
     return pipe(H.status(H.Status.BadRequest), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send('bad request ' + message)));
 }
 const doAPIWork = (browser) => (pageurl) => H.fromTaskEither(createBrowserContext(browser)(pageurl));
-const getWebSiteHandler = pipe(decodePageQuery, H.chain(({ pageurl }) => doAPIWork(browser)(pageurl)), H.ichain((second) => pipe(H.status(H.Status.OK), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(`Hello decoded, ${second}`)))), H.orElse(badRequest));
+const getWebSiteHandler = pipe(decodePageQuery, H.chain(({ pageurl }) => doAPIWork(browser)(pageurl)), H.ichain((second) => pipe(H.status(H.Status.OK), H.ichain(() => H.closeHeaders()), H.ichain(() => H.send(JSON.stringify(second()))))), H.orElse(badRequest));
 const app = express();
 app
     .get('/getpage', toRequestHandler(getWebSiteHandler))
-    .listen(3000, () => console.log('Express listening on port 3000. Use: POST /'));
+    // .get('/getpage', (req, res) => {
+    //   console.log('got some request', req)
+    //   res.send('ok I got the request')
+    // })
+    .listen(3021, () => console.log('Express listening on port 3021.'));
