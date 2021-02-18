@@ -80,7 +80,7 @@ const domRequests$ = (): R.Reader<PrimaryData, Observable<number>> => (
 };
 
 const domStrings$ = (r: Observable<number>) => (env: PrimaryData) =>
-  r.pipe(switchMap(() => fromTask(getPageContent(env.client.page))));
+  r.pipe(switchMap(():T.Task<string> => fromTask(getPageContent(env.client.page))));
 
 const diffWorkflow = (): R.Reader<PrimaryData, Observable<DOMString>> =>
   pipe(

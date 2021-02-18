@@ -8,6 +8,7 @@ import type {
   Page,
   Response,
 } from 'playwright/types/types';
+import { cleanHTML } from './processHTML';
 
 const getContext = (b: Browser): T.Task<BrowserContext> => () => {
   return b.newContext();
@@ -26,7 +27,7 @@ const loadUrl = (p: Page): ((a: string) => T.Task<Response | null>) => (
 export type DOMString = string;
 
 export const getPageContent = (p: Page): T.Task<DOMString> => () => {
-  return p.content();
+  return p.content().then(s => cleanHTML(s)());
 }
 
 const navigateToPage = (
