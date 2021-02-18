@@ -11,8 +11,20 @@ import type {
 } from 'parse5';
 import { DOCUMENT_MODE } from './libs/html.js';
 import * as MO from 'monocle-ts';
-import { tree as T, option as O, array as A, eq as Eq, boolean as Bool } from 'fp-ts';
+import { indexArray } from 'monocle-ts/lib/Index/Array';
+import { atSet } from 'monocle-ts/lib/At/Set';
+import {
+  tree as T,
+  option as O,
+  array as A,
+  eq as Eq,
+  boolean as Bool,
+} from 'fp-ts';
 import { identity, pipe, flow, Refinement } from 'fp-ts/es6/function';
+import { eqNumber } from 'fp-ts/es6/Eq';
+import { fromArray } from 'fp-ts/lib/Set';
+import { toArray } from 'fp-ts/lib/Set';
+import { ordNumber } from 'fp-ts/lib/Ord';
 
 // so, internally I can use Tree and Forest, but the functions must take and return these standard types
 // or in fact createDocument can return a documentTree, but then the
@@ -103,28 +115,34 @@ type DocNodeTree_ts = T.Tree<DocNode_ts>;
 const NodeEq: Eq.Eq<Node_ts> = {
   equals: (a: Node_ts, b: Node_ts) => {
     console.log('equals?', a, b);
-    return a.nodeName === b.nodeName}
-}
+    return a.nodeName === b.nodeName;
+  },
+};
 
 const SameNodeKind: Eq.Eq<Node_ts> = {
- equals: (a: Node_ts, b: Node_ts) => {
+  equals: (a: Node_ts, b: Node_ts) => {
     return a.kind === b.kind;
-  }
-}
+  },
+};
 
 const SameTreeNodeKind: Eq.Eq<Node_tsTree> = {
-  equals: (a:Node_tsTree, b:Node_tsTree) => {
+  equals: (a: Node_tsTree, b: Node_tsTree) => {
     return SameNodeKind.equals(T.extract(a), T.extract(b));
-  }
-}
+  },
+};
 
 const DOMTraversal = MO.fromTraversable(T.tree)<DocNodeTree_ts>();
 
-function isNodeOfKind<Something extends Node_ts>(a: DocNode_ts, b: Something): b is Something  {
-  return (a.kind === b.kind);
+function isNodeOfKind<Something extends Node_ts>(
+  a: DocNode_ts,
+  b: Something
+): b is Something {
+  return a.kind === b.kind;
 }
 
-const isDocTypeNode: Refinement<DocNode_ts, DocumentType_ts> = (a: DocNode_ts): a is DocumentType_ts => {
+const isDocTypeNode: Refinement<DocNode_ts, DocumentType_ts> = (
+  a: DocNode_ts
+): a is DocumentType_ts => {
   return a.kind === 'documenttype';
 };
 
@@ -239,72 +257,88 @@ export const setDocumentType = function (
     .modify((a) => {
       return { ...a, name: name, publicId: publicId, systemId: systemId };
     });
-  const hasDoctype = A.elem(SameTreeNodeKind)(T.of({nodeName:'#documentType', kind:'documenttype'}))
+  const hasDoctype = A.elem(SameTreeNodeKind)(
+    T.of({ nodeName: '#documentType', kind: 'documenttype' })
+  );
   return pipe(
     hasDoctype(document.forest),
     Bool.fold(
       () => document,
-      () => updateDocTypeElem(document),
+      () => updateDocTypeElem(document)
     )
-  )
+  );
 };
 
 console.clear();
 console.log('*******************************');
 
-export const setDocumentMode = function(document: DocNodeTree_ts, mode: DocumentType_ts) {
+export const setDocumentMode = function (
+  document: DocNodeTree_ts,
+  mode: DocumentType_ts
+) {
   console.log('TODO: setDocumentMode');
 };
 
-export const getDocumentMode = function(document: DocNodeTree_ts): DocumentMode_ts {
-    return 'no-quirks';
+export const getDocumentMode = function (
+  document: DocNodeTree_ts
+): DocumentMode_ts {
+  return 'no-quirks';
 };
 //
-export const detachNode = function(node: DocNode_ts) {
-  console.log('TODO: detachNode')
-    // if (node.parentNode) {
-    //     const idx = node.parentNode.childNodes.indexOf(node);
-    //
-    //     node.parentNode.childNodes.splice(idx, 1);
-    //     node.parentNode = null;
-    // }
+export const detachNode = function (node: DocNode_ts) {
+  console.log('TODO: detachNode');
+  // if (node.parentNode) {
+  //     const idx = node.parentNode.childNodes.indexOf(node);
+  //
+  //     node.parentNode.childNodes.splice(idx, 1);
+  //     node.parentNode = null;
+  // }
 };
 //
 
-export const insertText = function (parentNode: Node_tsTree, text: string) {
-  const aTextNode: TextNode_ts = {
-    nodeName: "#text",
-    kind: 'textnode',
-    value: 'empty AtextNode',
-    parentNode: null
-  }
-  const valueProp = MO.Lens.fromProp<TextNode_ts>()('value');
+const aTextNode: TextNode_ts = {
+  nodeName: '#text',
+  kind: 'textnode',
+  value: 'empty AtextNode',
+  parentNode: null,
+};
+const valueProp = MO.Lens.fromProp<TextNode_ts>()('value');
 
-  function isItATextNode(e: Node_ts): e is TextNode_ts {
-    return e.kind === 'textnode';
-  }
+function isItATextNode(e: Node_ts): e is TextNode_ts {
+  return e.kind === 'textnode';
+}
 
-  const lastTextNode = (e: T.Forest<Node_ts>): O.Option<TextNode_ts> => pipe(
+const lastTextNode = (e: T.Forest<Node_ts>): O.Option<TextNode_ts> =>
+  pipe(
     e,
     A.last,
     O.map(T.extract),
-    O.chain(
-      e => (isItATextNode(e) ? O.some(e) : O.none)
-    ),
+    O.chain((e) => (isItATextNode(e) ? O.some(e) : O.none))
   );
 
+export const insertText = function (parentNode: Node_tsTree, text: string) {
   const lastTextOptional = new MO.Optional<T.Forest<Node_ts>, TextNode_ts>(
-    s => pipe(s, lastTextNode, O.altW(() => O.some(aTextNode))),
-    a => s => pipe(s, lastTextNode, O.fold(
-      () => A.snoc(s, T.of(a)),
-      () => [...s.slice(0, s.length - 1), T.of(a)]
-    ))
-  )
+    (s) =>
+      pipe(
+        s,
+        lastTextNode,
+        O.altW(() => O.some(aTextNode))
+      ),
+    (a) => (s) =>
+      pipe(
+        s,
+        lastTextNode,
+        O.fold(
+          () => A.snoc(s, T.of(a)),
+          () => [...s.slice(0, s.length - 1), T.of(a)]
+        )
+      )
+  );
 
   const theForest = MO.Lens.fromProp<Node_tsTree>()('forest');
   const updateLastText = lastTextOptional.composeLens(valueProp);
-  const updateInForest = theForest.composeOptional(updateLastText)
-  const doit3 = updateInForest.modify(() => text)
+  const updateInForest = theForest.composeOptional(updateLastText);
+  const doit3 = updateInForest.modify(() => text);
   parentNode = doit3(parentNode);
   return parentNode;
 };
@@ -352,19 +386,70 @@ const mytestForest: DocNodeTree_ts = T.make(
 );
 
 const myinsertedtext = insertText(mytestForest, 'newinserted text');
-console.dir(myinsertedtext, {depth:3});
+// console.dir(myinsertedtext, { depth: 3 });
 
-//
-// export const insertTextBefore = function(parentNode, text, referenceNode) {
-//     const prevNode = parentNode.childNodes[parentNode.childNodes.indexOf(referenceNode) - 1];
-//
-//     if (prevNode && prevNode.nodeName === '#text') {
-//         prevNode.value += text;
-//     } else {
-//         insertBefore(parentNode, createTextNode(text), referenceNode);
-//     }
-// };
-//
+export const insertTextBefore = function (
+  parentNode: Node_tsTree,
+  text: string,
+  referenceNode: Node_tsTree
+) {
+  const isReferenceTextNode: Eq.Eq<Node_ts> = {
+    equals: (a: Node_ts, b: Node_ts) => {
+      if (isItATextNode(a) && isItATextNode(b)) {
+        return a.value === b.value;
+      }
+      return false;
+    }
+  }
+  // 1. implement isSameNode (equals name, kind, then the main stuff, but not the tree)
+  // 2. then create a Prism to get to this element in Tree
+  // 3. then need to check if this Prism is none → need to
+
+  // const prevNode = parentNode.childNodes[parentNode.childNodes.indexOf(referenceNode) - 1];
+  //
+  // if (prevNode && prevNode.nodeName === '#text') {
+  //     prevNode.value += text;
+  // } else {
+  //     insertBefore(parentNode, createTextNode(text), referenceNode);
+  // }
+};
+
+// *********** At tests ****************
+type AnElem = {
+  name: string
+}
+const elemList:Array<AnElem> = [{name:'a'}, {name:'b'}, {name: 'c'}];
+type MyData = {
+  children: Array<AnElem>
+}
+const myData: MyData = {
+  children: elemList
+}
+
+const firstChild = indexArray<AnElem>().index(0);
+const firstChildTwo = MO.index.indexArray<AnElem>().index(0);
+const elemName = MO.Lens.fromProp<AnElem>()('name');
+const thechildren = MO.Lens.fromProp<MyData>()('children');
+const firstchildren = thechildren.composeOptional(firstChild).composeLens(elemName)
+const mymodif = firstchildren.set('whatever')
+console.log(mymodif(myData))
+
+const mySet = fromArray(eqNumber)([2,3,3,4,5,6]);
+const atSomething = atSet(eqNumber).at(1)
+
+const newSet = atSomething.set(true)(mySet)
+console.log(pipe(newSet, toArray(ordNumber)))
+
+// what have I learned today ?
+// 1. you actually cannot insert at a specific place an item with Optics, 
+// only at the end with atSet (if the item doesn't exist)
+// 2. you also cannot access a "lastChild" of something
+// the Set and At are good to do "match an element or add new at the end" type of modifications
+// 3. BUT, do you need to go so deep with Optics ? Do you really need to use Optics here in the parser?
+// Optics will be interesting when you do the CSS AST and traverse because you will want to compose them
+// BUT here, we can just do "classic", normal Array manipulations!!
+
+
 // export const adoptAttributes = function(recipient, attrs) {
 //     const recipientAttrsMap = [];
 //
