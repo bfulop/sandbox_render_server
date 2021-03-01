@@ -140,12 +140,12 @@ export const domPatched$ = (stream: Observable<SystemEvents>): Observable<System
   filter(e => e.type === 'DOMpatched'),
 )
 
-console.log('  ---------------  streampipe  ---------------  ');
-pipe(mystream, toKnownEvents$, decodedEvents$).subscribe((e) => {
-  console.log('************** Known Event *************');
-  console.log(e);
-});
-pipe(mystream, toKnownEvents$, toUserEvents$, decodedEvents$).subscribe((e) => {
-  console.log('************** User Event *************');
-  console.log(e);
-});
+// console.log('  ---------------  streampipe  ---------------  ');
+// pipe(mystream, toKnownEvents$, decodedEvents$).subscribe((e) => {
+//   console.log('************** Known Event *************');
+//   console.log(e);
+// });
+// pipe(mystream, toKnownEvents$, toUserEvents$, decodedEvents$).subscribe((e) => {
+//   console.log('************** User Event *************');
+//   console.log(e);
+// });

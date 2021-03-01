@@ -12,8 +12,6 @@ import { addClient } from './connections';
 import { getPage } from './getBrowserPage';
 import { remoteRender } from './server';
 
-console.clear();
-
 const browser = await chromium.launch();
 const wss = new WebSocket.Server({ port: 8088 });
 wss.on('connection', (ws, { url }) => remoteRender(ws, url));

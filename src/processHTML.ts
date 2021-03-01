@@ -7,8 +7,6 @@ import { pipe, identity } from 'fp-ts/es6/function';
 import * as treeAdaptor from './libs/tree-adapter-custom.js';
 import type { DOMString } from './getBrowserPage';
 
-console.clear();
-
 const parseDOMStringWithoutScripts = (d: string): IO.IO<parse5.Document> => () => {
   return parse5.parse(d, {treeAdapter: treeAdaptor});
 };

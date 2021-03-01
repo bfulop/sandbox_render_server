@@ -14,7 +14,6 @@ import {
 import WebSocket from 'ws';
 import { Browser, BrowserContext, chromium } from 'playwright';
 import type { Page } from 'playwright';
-import DiffMatchPatch from 'diff-match-patch';
 import {
   toKnownEvents$,
   toSystemEvents$,
@@ -41,8 +40,9 @@ import { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
 import { getPageContent } from './getBrowserPage';
 import type { DOMString } from './getBrowserPage';
 import { fromTask } from 'fp-ts-rxjs/es6/Observable';
+import { DOMDiffsStream } from './domDiffsStream';
 
-interface PrimaryData {
+export interface PrimaryData {
   client: aConncection;
   domMutations: Observable<number>;
   clientEvents: Observable<WebSocket.MessageEvent>;
@@ -51,54 +51,6 @@ interface PrimaryData {
   systemEvents: Observable<SystemEvents>;
   send: (a: any) => void;
 }
-
-const diffEngine = new DiffMatchPatch.diff_match_patch();
-
-function domDiff(doma: string, domb: string) {
-  return diffEngine.patch_make(doma, domb);
-}
-
-// const clientSynced$ = clientSystem$.pipe(filter((data) => data === 'synced'));
-// const throttledMutations$ = DOMMutations$.pipe(
-//   windowWhen(() => clientSynced$),
-//   map((win) => win.pipe(take(1))),
-//   mergeAll()
-// );
-
-const domRequests$ = (): R.Reader<PrimaryData, Observable<number>> => (
-  env: PrimaryData
-) => {
-  const patched$ = pipe(
-    env.systemEvents,
-    filter((e) => e.type === 'DOMpatched')
-  );
-  return env.domMutations.pipe(
-    windowWhen(() => patched$),
-    map((win) => win.pipe(take(1))),
-    mergeAll()
-  );
-};
-
-const domStrings$ = (r: Observable<number>) => (env: PrimaryData) =>
-  r.pipe(switchMap(():T.Task<string> => fromTask(getPageContent(env.client.page))));
-
-const diffWorkflow = (): R.Reader<PrimaryData, Observable<DOMString>> =>
-  pipe(
-    identity,
-    // |> create a stream of throttledMutations (DOMMutations + Synced) ✔︎
-    R.chain(domRequests$),
-    // |> pipe the stream into getDOM (Reader ask) ✔︎
-    R.chain(domStrings$)
-  );
-
-const completeDomStrings$ = (): R.Reader<PrimaryData, Observable<DOMString>> =>
-  pipe(
-    identity,
-    R.chain(() => diffWorkflow()),
-    R.chain((a) => (b) => {
-      return a.pipe(startWith(b.client.DOMstring));
-    })
-  );
 
 const DOMMutations$ = (p: Page): Observable<number> => {
   p.evaluate(() => {
@@ -183,7 +135,9 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
         E.right(
           pipe(
             clientEvents,
-            map((e) => e.data),
+            map((e) => {
+            // console.log('message received', e.data);
+            return e.data}),
             toKnownEvents$
           )
         )
@@ -199,29 +153,12 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
   // TODO: send here the first DOM string
   // when client finished, will send a DOMPatched event
 
-  const DOMStringMutations$ = (url: string | undefined) =>
-    pipe(
-      mainApp(url),
-      E.map(
-        pipe(
-          completeDomStrings$(),
-          R.map((a) =>
-            a.pipe(
-              pairwise(),
-              map(([a, b]) => domDiff(a, b))
-            )
-          ),
-          R.chainFirst((a) => (b) => {
-            a.subscribe((e) => {
-              b.send(JSON.stringify({ type: 'diff', payload: e }));
-            });
-          })
-        )
-      )
-    );
-
+  const startStreams = (url: string | undefined ) => pipe(
+    mainApp(url),
+    E.map(DOMDiffsStream)
+  );
   flow(
-    DOMStringMutations$,
+    startStreams,
     E.mapLeft((a) => {
       console.log('somererr', a);
       ws.send(JSON.stringify({ type: 'initerror', payload: a }));
