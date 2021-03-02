@@ -41,6 +41,7 @@ import { getPageContent } from './getBrowserPage';
 import type { DOMString } from './getBrowserPage';
 import { fromTask } from 'fp-ts-rxjs/es6/Observable';
 import { DOMDiffsStream } from './domDiffsStream';
+import { UserEventsStream } from './userEventsStreams';
 
 export interface PrimaryData {
   client: aConncection;
@@ -150,12 +151,14 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
       )
     );
 
-  // TODO: send here the first DOM string
-  // when client finished, will send a DOMPatched event
+  const allThePipes = () => pipe(
+    R.bindTo('doms')(DOMDiffsStream),
+    R.bind('mice', () => UserEventsStream())
+  )
 
   const startStreams = (url: string | undefined ) => pipe(
     mainApp(url),
-    E.map(DOMDiffsStream)
+    E.map(allThePipes())
   );
   flow(
     startStreams,
