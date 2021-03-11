@@ -37,28 +37,22 @@ const mystream = of(
   // 5,
   // 'b',
   // 'a',
-  JSON.stringify({ type: 'click', x: 1, y: 2, path: 'what' }),
+  JSON.stringify({ type: 'mouseclick', x: 1, y: 2, path: 'what' }),
   JSON.stringify({ umbrella: 'potatoes' }),
   JSON.stringify({ type: 'DOMpatched' })
 );
 
-type mousemove = {
-  type: 'mousemove';
+type MouseEvent = {
+  type: 'mousemove' | 'mouseclick'
   x: number;
   y: number;
 };
-type click = {
-  type: 'click';
-  x: number;
-  y: number;
-  path: string;
-};
-export const UserEvents: Decoder<unknown, mousemove | click> = sum('type')({
+export const UserEvents: Decoder<unknown, MouseEvent> = sum('type')({
   mousemove: type({ type: literal('mousemove'), x: number, y: number }),
-  click: type({ type: literal('click'), x: number, y: number, path: string }),
+  mouseclick: type({ type: literal('mouseclick'), x: number, y: number }),
 });
 
-export type UserEvents = mousemove | click;
+export type UserEvents = MouseEvent;
 
 type DOMpatched = {
   type: 'DOMpatched';
@@ -118,7 +112,7 @@ export const toUserEvents$ = (
 ): ObservableEither<Error, UserEvents> =>
   pipe(
     stream, 
-    mapOE(e => decodeUserEvents(e)), 
+    mapOE(decodeUserEvents), 
     filterMap(fromEither)
   );
 
@@ -139,13 +133,3 @@ export const domPatched$ = (stream: Observable<SystemEvents>): Observable<System
   stream,
   filter(e => e.type === 'DOMpatched'),
 )
-
-// console.log('  ---------------  streampipe  ---------------  ');
-// pipe(mystream, toKnownEvents$, decodedEvents$).subscribe((e) => {
-//   console.log('************** Known Event *************');
-//   console.log(e);
-// });
-// pipe(mystream, toKnownEvents$, toUserEvents$, decodedEvents$).subscribe((e) => {
-//   console.log('************** User Event *************');
-//   console.log(e);
-// });

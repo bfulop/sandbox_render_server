@@ -48,25 +48,26 @@ const domRequests$ = (): R.Reader<PrimaryData, Observable<number>> => (
 const domStrings$ = (r: Observable<number>) => (env: PrimaryData) =>
   r.pipe(switchMap(():T.Task<string> => fromTask(getPageContent(env.client.page))));
 
-const diffWorkflow : R.Reader<PrimaryData, Observable<DOMString>> =
+const diffWorkflow = (): R.Reader<PrimaryData, Observable<DOMString>> =>
   pipe(
-    R.ask<PrimaryData>(),
+    identity,
     // |> create a stream of throttledMutations (DOMMutations + Synced) ✔︎
     R.chain(domRequests$),
     // |> pipe the stream into getDOM (Reader ask) ✔︎
     R.chain(domStrings$)
   );
 
-const completeDomStrings$ : R.Reader<PrimaryData, Observable<DOMString>> =
+const completeDomStrings$ = (): R.Reader<PrimaryData, Observable<DOMString>> =>
   pipe(
-    diffWorkflow,
+    identity,
+    R.chain(() => diffWorkflow()),
     R.chain((a) => (b) => {
       return a.pipe(startWith(b.client.DOMstring));
     })
   );
 
 export const DOMDiffsStream = pipe(
-  completeDomStrings$,
+  completeDomStrings$(),
   R.map((a) =>
     a.pipe(
       pairwise(),

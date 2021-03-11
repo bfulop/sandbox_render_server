@@ -32,6 +32,7 @@ import {
   task as T,
   reader as R,
   readerEither as RE,
+  apply as Apply
 } from 'fp-ts';
 import * as D from 'io-ts/es6/Decoder';
 import { UUID } from 'io-ts-types';
@@ -150,16 +151,19 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
         E.right(pipe(handledEvents, toSystemEvents$, decodedEvents$))
       )
     );
-
-  const allThePipes = () => pipe(
-    R.bindTo('doms')(DOMDiffsStream),
-    R.bind('mice', () => UserEventsStream())
+  
+  
+  const allThePipes = pipe(
+    DOMDiffsStream,
+    R.chain((e) => UserEventsStream)
+    // R.bind('mice', UserEventsStream)
   )
 
   const startStreams = (url: string | undefined ) => pipe(
     mainApp(url),
-    E.map(allThePipes())
+    E.map(allThePipes)
   );
+
   flow(
     startStreams,
     E.mapLeft((a) => {
