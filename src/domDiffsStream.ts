@@ -1,29 +1,25 @@
 import {
-  either as E,
-  taskEither as TE,
   task as T,
   reader as R,
-  readerEither as RE,
+  function as F,
 } from 'fp-ts';
 import {
   map,
   filter,
-  windowToggle,
   windowWhen,
   mergeAll,
   take,
-  concat,
   switchMap,
   startWith,
   pairwise,
 } from 'rxjs/operators';
-import { from, fromEvent, Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import DiffMatchPatch from 'diff-match-patch';
 import type { PrimaryData } from './server';
 import type { DOMString } from './getBrowserPage';
-import { identity, pipe } from 'fp-ts/es6/function';
 import { getPageContent } from './getBrowserPage';
 import { fromTask } from 'fp-ts-rxjs/es6/Observable';
+import { DiffMessage } from './codecs';
 
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 
@@ -34,7 +30,7 @@ function domDiff(doma: string, domb: string) {
 const domRequests$ = (): R.Reader<PrimaryData, Observable<number>> => (
   env: PrimaryData
 ) => {
-  const patched$ = pipe(
+  const patched$ = F.pipe(
     env.systemEvents,
     filter((e) => e.type === 'DOMpatched')
   );
@@ -49,23 +45,21 @@ const domStrings$ = (r: Observable<number>) => (env: PrimaryData) =>
   r.pipe(switchMap(():T.Task<string> => fromTask(getPageContent(env.client.page))));
 
 const diffWorkflow : R.Reader<PrimaryData, Observable<DOMString>> =
-  pipe(
+  F.pipe(
     R.ask<PrimaryData>(),
-    // |> create a stream of throttledMutations (DOMMutations + Synced) ✔︎
     R.chain(domRequests$),
-    // |> pipe the stream into getDOM (Reader ask) ✔︎
     R.chain(domStrings$)
   );
 
 const completeDomStrings$ : R.Reader<PrimaryData, Observable<DOMString>> =
-  pipe(
+  F.pipe(
     diffWorkflow,
     R.chain((a) => (b) => {
       return a.pipe(startWith(b.client.DOMstring));
     })
   );
 
-export const DOMDiffsStream = pipe(
+export const DOMDiffsStream = F.pipe(
   completeDomStrings$,
   R.map((a) =>
     a.pipe(
@@ -73,9 +67,5 @@ export const DOMDiffsStream = pipe(
       map(([a, b]) => domDiff(a, b))
     )
   ),
-  R.chainFirst((a) => (b) => {
-    a.subscribe((e) => {
-      b.send(JSON.stringify({ type: 'diff', payload: e }));
-    });
-  })
+  R.map(e => e.pipe(map(patch => DiffMessage.encode({type: 'diff', payload: patch})))),
 );

@@ -11,7 +11,9 @@ import type {
 import { cleanHTML } from './processHTML';
 
 const getContext = (b: Browser): T.Task<BrowserContext> => () => {
-  return b.newContext();
+  return b.newContext({
+    viewport: { width: 680, height: 860 },
+  });
 };
 
 const getNewPage = (c: BrowserContext): T.Task<Page> => () => {

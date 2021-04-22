@@ -1,55 +1,30 @@
-import { from, fromEvent, Observable, of } from 'rxjs';
-import {
-  map,
-  filter,
-  windowToggle,
-  windowWhen,
-  mergeAll,
-  take,
-  concat,
-  switchMap,
-  startWith,
-  pairwise,
-} from 'rxjs/operators';
-import WebSocket from 'ws';
-import { Browser, BrowserContext, chromium } from 'playwright';
-import type { Page } from 'playwright';
-import {
-  toKnownEvents$,
-  toSystemEvents$,
-  toUserEvents$,
-  decodedEvents$,
-} from './decodeClientEvents';
-import type {
-  HandledEvents,
-  UserEvents,
-  SystemEvents,
-} from './decodeClientEvents';
-import { flow, identity, pipe } from 'fp-ts/es6/function';
-import {
-  either as E,
-  taskEither as TE,
-  task as T,
+import { function as F,
+  either as E, 
   reader as R,
-  readerEither as RE,
-  apply as Apply
+  option as O,
+  json
 } from 'fp-ts';
-import * as D from 'io-ts/es6/Decoder';
 import { UUID } from 'io-ts-types';
+import { filterMap, map as mapObs } from 'fp-ts-rxjs/es6/Observable';
+import * as D from 'io-ts/es6/Decoder';
+import type { Page } from 'playwright';
+import { fromEvent, Observable } from 'rxjs';
+import type WebSocket from 'ws';
 import { aConncection, getClient } from './connections';
-import { ObservableEither } from 'fp-ts-rxjs/es6/ObservableEither';
-import { getPageContent } from './getBrowserPage';
-import type { DOMString } from './getBrowserPage';
-import { fromTask } from 'fp-ts-rxjs/es6/Observable';
+import {
+  SystemEvents,
+  UserEvent,
+  WebSocketMessage,
+  KnownEvent
+} from './codecs';
 import { DOMDiffsStream } from './domDiffsStream';
-import { UserEventsStream } from './userEventsStreams';
+import { mouseEventsStream } from './userEventsStreams';
 
 export interface PrimaryData {
   client: aConncection;
   domMutations: Observable<number>;
-  clientEvents: Observable<WebSocket.MessageEvent>;
-  handledEvents: ObservableEither<Error, HandledEvents>;
-  userEvents: Observable<UserEvents>;
+  clientEvents: Observable<KnownEvent>;
+  userEvents: Observable<UserEvent>;
   systemEvents: Observable<SystemEvents>;
   send: (a: any) => void;
 }
@@ -92,13 +67,13 @@ const isString: D.Decoder<unknown, string> = {
 const isId = (t: string) => UUID.decode(t);
 
 const decodeId = (url: string | undefined) =>
-  pipe(
+  F.pipe(
     isString.decode(url),
     E.map((e: string) => e.replace('/', '')),
     E.chainW((e) => isId(e))
   );
 
-// remote render flow:
+// remote render F.flow:
 // 1. set up primary streams
 // |> decode url (either) ✔︎
 // |> getClient (either) ✔︎
@@ -113,7 +88,7 @@ const decodeId = (url: string | undefined) =>
 // |> user$ |> pageUpdate
 
 const browserContextFromURL = (url: string | undefined) => {
-  return pipe(
+  return F.pipe(
     decodeId(url),
     E.bimap(() => 'could not decode url', getClient),
     E.map((e) => e()),
@@ -121,50 +96,81 @@ const browserContextFromURL = (url: string | undefined) => {
   );
 };
 
+const getKnownEvents = (ws: WebSocket) =>
+  F.pipe(
+    ws,
+    (s) => fromEvent(s, 'message'),
+    mapObs((e: unknown) =>
+      F.pipe(
+        e,
+        WebSocketMessage.decode,
+        E.chainW((e) => F.pipe(e, (b) => json.parse(b.data))),
+        E.chainW(KnownEvent.decode)
+      )
+    ),
+    filterMap(O.fromEither),
+    E.right
+  );
+
 export const remoteRender = (ws: WebSocket, url: string | undefined) => {
   const mainApp = (anurl: string | undefined): E.Either<string, PrimaryData> =>
-    pipe(
-      // T.bindTo('context')(getContext(browser)),
+    F.pipe(
       E.bindTo('client')(browserContextFromURL(anurl)),
       E.bind('domMutations', ({ client }) =>
         E.right(DOMMutations$(client.page))
       ),
-      E.bind('clientEvents', () =>
-        E.right(<Observable<WebSocket.MessageEvent>>fromEvent(ws, 'message'))
-      ),
+      E.bindW('clientEvents', () => getKnownEvents(ws)),
       E.bind('send', () => E.right((a: string) => ws.send(a))),
-      E.bind('handledEvents', ({ clientEvents }) =>
-        E.right(
-          pipe(
+      E.bindW(
+        'userEvents',
+        ({ clientEvents }): E.Either<never, Observable<UserEvent>> =>
+          F.pipe(
             clientEvents,
-            map((e) => {
-            // console.log('message received', e.data);
-            return e.data}),
-            toKnownEvents$
+            mapObs(UserEvent.decode),
+            filterMap(O.fromEither),
+            E.right
           )
-        )
       ),
-      E.bind('userEvents', ({ handledEvents }) =>
-        E.right(pipe(handledEvents, toUserEvents$, decodedEvents$))
-      ),
-      E.bind('systemEvents', ({ handledEvents }) =>
-        E.right(pipe(handledEvents, toSystemEvents$, decodedEvents$))
+      E.bindW(
+        'systemEvents',
+        ({ clientEvents }): E.Either<never, Observable<SystemEvents>> =>
+          F.pipe(
+            clientEvents,
+            mapObs(SystemEvents.decode),
+            filterMap(O.fromEither),
+            E.right
+          )
       )
     );
-  
-  
-  const allThePipes = pipe(
-    DOMDiffsStream,
-    R.chain((e) => UserEventsStream)
-    // R.bind('mice', UserEventsStream)
-  )
 
-  const startStreams = (url: string | undefined ) => pipe(
-    mainApp(url),
-    E.map(allThePipes)
+  const allThePipes = F.pipe(
+    R.bindTo('diffStream')(DOMDiffsStream),
+    R.bind('mouseStream', () => mouseEventsStream),
+    // push the responses
+    R.chain((streams) =>
+      F.pipe(
+        R.asks<PrimaryData, (a: unknown) => void>((e) => e.send),
+        R.map((send) => {
+          console.log('gonna subscribe OK');
+          streams.diffStream.subscribe((b) => {
+            F.pipe(b, json.stringify, E.map(send), E.mapLeft(() => send('could not stringify data')));
+          });
+          streams.mouseStream.map((e) =>
+            e.subscribe((b) => {
+              F.pipe(b, json.stringify, E.map(send), E.mapLeft(() => send('could not stringify data')));
+            })
+          );
+          return streams;
+        })
+      )
+    )
   );
 
-  flow(
+  const startStreams = (url: string | undefined) =>
+    F.pipe(mainApp(url), E.map(allThePipes));
+
+  // Where we pull the trigger
+  F.flow(
     startStreams,
     E.mapLeft((a) => {
       console.log('somererr', a);
@@ -172,4 +178,7 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
       return a;
     })
   )(url);
+
+
+
 };
