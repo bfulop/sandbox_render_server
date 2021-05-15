@@ -113,6 +113,15 @@ const getKnownEvents = (ws: WebSocket) =>
     E.right
   );
 
+function onDisconnect(ws: WebSocket): (a: aConncection) => void {
+  return (client) => {
+    ws.on("close", () => {
+      console.log('closing the browser');
+      client.context.close();
+    })
+  }
+}
+
 export const remoteRender = (ws: WebSocket, url: string | undefined) => {
   const mainApp = (anurl: string | undefined): E.Either<string, PrimaryData> =>
     F.pipe(
@@ -141,7 +150,8 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
             filterMap(O.fromEither),
             E.right
           )
-      )
+      ),
+      E.chainFirstW(e => F.pipe(e, e => e.client, onDisconnect(ws), () => E.of('disconnected'))),
     );
 
   const allThePipes = F.pipe(
@@ -152,7 +162,6 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
       F.pipe(
         R.asks<PrimaryData, (a: unknown) => void>((e) => e.send),
         R.map((send) => {
-          console.log('gonna subscribe OK');
           streams.diffStream.subscribe((b) => {
             F.pipe(b, json.stringify, E.map(send), E.mapLeft(() => send('could not stringify data')));
           });
