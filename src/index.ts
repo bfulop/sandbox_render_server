@@ -5,6 +5,7 @@ import {
 } from 'fp-ts';
 import express from 'express';
 import * as t from 'io-ts';
+import { IntFromString } from 'io-ts-types'
 import * as H from 'hyper-ts/es6/index';
 import { toRequestHandler } from 'hyper-ts/es6/express';
 import { Browser, chromium } from 'playwright';
@@ -14,18 +15,27 @@ import { getPage } from './getBrowserPage';
 import { remoteRender } from './server';
 import { LoadedPage } from './codecs';
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({ headless: true });
 const wss = new WebSocket.Server({ port: 8088 });
 wss.on('connection', (ws, { url }) => remoteRender(ws, url));
 
-const decodeParam = F.pipe(
-  H.decodeParam('pageurl', t.string.decode),
-  H.mapLeft((e) => {
+const decodePageQueryParams = F.pipe(
+  H.decodeQuery(
+    t.strict({
+      url: t.string,
+      window: t.strict({
+        width: IntFromString,
+        height: IntFromString
+      })
+    }).decode
+  ),
+  H.mapLeft(e => {
     console.error(e);
-    return 'page query decode error'})
+    return 'page query decode error';
+  })
 );
 
-const createBrowserContext = (b: Browser) => (u: string) =>
+const createBrowserContext = (b: Browser) => (u: pageOpenParams) =>
   F.pipe(
     getPage(b)(u),
     TE.bimap(() => 'error creating browser context', (e) => addClient(e)),
@@ -42,12 +52,20 @@ function badRequest(
   );
 }
 
-const doAPIWork = (browser: Browser) => (pageurl: string) =>
+export type pageOpenParams = {
+  url: string,
+  window: {
+    width: number,
+    height: number
+  }
+}
+
+const doAPIWork = (browser: Browser) => (pageurl: pageOpenParams) =>
   H.fromTaskEither(createBrowserContext(browser)(pageurl));
 
 const getWebSiteHandler = F.pipe(
-  decodeParam,
-  H.chain(pageurl => doAPIWork(browser)(pageurl)),
+  decodePageQueryParams,
+  H.chain((pageurl: pageOpenParams) => doAPIWork(browser)(pageurl)),
   H.ichain(loadedpage =>
     F.pipe(
       H.status<string>(H.Status.OK),
@@ -62,7 +80,7 @@ const app = express();
 
 app
   .use('/client', express.static('../render_client_v3/build'))
-  .get('/getpage/:pageurl', toRequestHandler(getWebSiteHandler))
+  .get('/getpage/', toRequestHandler(getWebSiteHandler))
   // .get('/getpage', (req, res) => {
   //   console.log('got some request', req)
   //   res.send('ok I got the request')

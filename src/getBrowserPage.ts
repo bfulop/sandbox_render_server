@@ -8,11 +8,11 @@ import type {
   Page,
   Response,
 } from 'playwright/types/types';
-import { cleanHTML } from './processHTML';
+import type { pageOpenParams } from './index'
 
-const getContext = (b: Browser): T.Task<BrowserContext> => () => {
+const getContext = (b: Browser) => (params:pageOpenParams): T.Task<BrowserContext> => () => {
   return b.newContext({
-    viewport: { width: 680, height: 860 },
+    viewport: { width: params.window.width, height: params.window.height },
   });
 };
 
@@ -20,26 +20,26 @@ const getNewPage = (c: BrowserContext): T.Task<Page> => () => {
   return c.newPage();
 };
 
-const loadUrl = (p: Page): ((a: string) => T.Task<Response | null>) => (
-  url: string
+const loadUrl = (p: Page): ((a: pageOpenParams) => T.Task<Response | null>) => (
+  url: pageOpenParams
 ) => () => {
-  return p.goto(url);
+  return p.goto(url.url);
 };
 
 export type DOMString = string;
 
 export const getPageContent = (p: Page): T.Task<DOMString> => () => {
-  return p.content().then(s => cleanHTML(s)());
+  return p.content();
 }
 
 const navigateToPage = (
   p: Page
-): ((u: string) => TE.TaskEither<string, Response>) => (url: string) =>
+): ((u: pageOpenParams) => TE.TaskEither<string, Response>) => (url: pageOpenParams) =>
   pipe(loadUrl(p)(url), T.map(fromNullable('cant load page')));
 
-export const getPage = (browser: Browser) => (url: string) =>
+export const getPage = (browser: Browser) => (url: pageOpenParams) =>
   pipe(
-    T.bindTo('context')(getContext(browser)),
+    T.bindTo('context')(getContext(browser)(url)),
     T.bind('page', ({ context }) => getNewPage(context)),
     TE.fromTask,
     TE.bind('loadedPage', ({ page }) => navigateToPage(page)(url)),
