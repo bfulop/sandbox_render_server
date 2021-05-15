@@ -81,10 +81,6 @@ const app = express();
 app
   .use('/client', express.static('../render_client_v3/build'))
   .get('/getpage/', toRequestHandler(getWebSiteHandler))
-  // .get('/getpage', (req, res) => {
-  //   console.log('got some request', req)
-  //   res.send('ok I got the request')
-  // })
   .listen(3021, () =>
     console.log('Express listening on port 3021.')
   );

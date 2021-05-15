@@ -1,4 +1,5 @@
-import { function as F,
+import {
+  function as F,
   either as E, 
   reader as R,
   option as O,
@@ -31,7 +32,7 @@ export interface PrimaryData {
 
 const DOMMutations$ = (p: Page): Observable<number> => {
   p.evaluate(() => {
-    const observer = new MutationObserver(function () {
+    const observer = new MutationObserver(function() {
       console.log('__mutation');
     });
     const config = {
