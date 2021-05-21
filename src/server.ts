@@ -19,7 +19,7 @@ import {
   KnownEvent
 } from './codecs';
 import { DOMDiffsStream } from './domDiffsStream';
-import { mouseEventsStream } from './userEventsStreams';
+import { mouseEventsStream, formActionStream } from './userEventsStreams';
 
 export interface PrimaryData {
   client: aConncection;
@@ -157,11 +157,13 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
   const allThePipes = F.pipe(
     R.bindTo('diffStream')(DOMDiffsStream),
     R.bind('mouseStream', () => mouseEventsStream),
+    R.bind('formActionStream', () => formActionStream),
     // push the responses
     R.chain((streams) =>
       F.pipe(
         R.asks<PrimaryData, (a: unknown) => void>((e) => e.send),
         R.map((send) => {
+          // TODO: create a sequence applicative of the streams
           streams.diffStream.subscribe((b) => {
             F.pipe(b, json.stringify, E.map(send), E.mapLeft(() => send('could not stringify data')));
           });
@@ -170,6 +172,10 @@ export const remoteRender = (ws: WebSocket, url: string | undefined) => {
               F.pipe(b, json.stringify, E.map(send), E.mapLeft(() => send('could not stringify data')));
             })
           );
+          streams.formActionStream.subscribe((b) => {
+            F.pipe(b, json.stringify, E.map(send), E.mapLeft(() => send('could not stringify data')));
+          });
+
           return streams;
         })
       )
