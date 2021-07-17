@@ -1,14 +1,16 @@
-import { fromNullable } from 'fp-ts/es6/Either';
-import { pipe } from 'fp-ts/es6/function';
-import * as T from 'fp-ts/es6/Task';
-import * as TE from 'fp-ts/es6/TaskEither';
+import {
+  function as F,
+  either as E,
+  taskEither as TE,
+  task as T,
+} from 'fp-ts';
 import type {
-  Browser,
-  BrowserContext,
-  Page,
-  Response,
+    Browser,
+    BrowserContext,
+    Page,
+    Response
 } from 'playwright/types/types';
-import type { pageOpenParams } from './index'
+import type { pageOpenParams } from './index';
 
 const getContext = (b: Browser) => (params:pageOpenParams): T.Task<BrowserContext> => () => {
   return b.newContext({
@@ -35,13 +37,13 @@ export const getPageContent = (p: Page): T.Task<DOMString> => () => {
 const navigateToPage = (
   p: Page
 ): ((u: pageOpenParams) => TE.TaskEither<string, Response>) => (url: pageOpenParams) =>
-  pipe(loadUrl(p)(url), T.map(fromNullable('cant load page')));
+  F.pipe(loadUrl(p)(url), T.map(E.fromNullable('cant load page')));
 
 export const getPage = (browser: Browser) => (url: pageOpenParams) =>
-  pipe(
+  F.pipe(
     T.bindTo('context')(getContext(browser)(url)),
     T.bind('page', ({ context }) => getNewPage(context)),
     TE.fromTask,
     TE.bind('loadedPage', ({ page }) => navigateToPage(page)(url)),
-    TE.bind('DOMstring', ( {page }) => pipe(page, getPageContent, TE.fromTask))
+    TE.bind('DOMstring', ( {page }) => F.pipe(page, getPageContent, TE.fromTask))
   );

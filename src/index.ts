@@ -6,9 +6,11 @@ import {
 import express from 'express';
 import * as t from 'io-ts';
 import { IntFromString } from 'io-ts-types'
-import * as H from 'hyper-ts/es6/index';
-import { toRequestHandler } from 'hyper-ts/es6/express';
+import * as H from 'hyper-ts';
+import { toRequestHandler } from 'hyper-ts/lib/express';
 import { Browser, chromium } from 'playwright';
+import https from 'https';
+import fs from 'fs';
 import WebSocket from 'ws';
 import { addClient } from './connections';
 import { getPage } from './getBrowserPage';
@@ -16,8 +18,15 @@ import { remoteRender } from './server';
 import { LoadedPage } from './codecs';
 
 const browser = await chromium.launch({ headless: true });
-const wss = new WebSocket.Server({ port: 8088 });
+
+const server = https.createServer({
+  cert: fs.readFileSync('../abundance-design_fr.crt'),
+  key: fs.readFileSync('../abundance-design.fr.key')
+});
+
+const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws, { url }) => remoteRender(ws, url));
+server.listen(8088);
 
 const decodePageQueryParams = F.pipe(
   H.decodeQuery(
@@ -65,6 +74,11 @@ const doAPIWork = (browser: Browser) => (pageurl: pageOpenParams) =>
 
 const getWebSiteHandler = F.pipe(
   decodePageQueryParams,
+  H.map(e => { 
+    console.log('the decoded stuff:')
+    console.log(e);
+    return e
+  }),
   H.chain((pageurl: pageOpenParams) => doAPIWork(browser)(pageurl)),
   H.ichain(loadedpage =>
     F.pipe(
@@ -79,7 +93,7 @@ const getWebSiteHandler = F.pipe(
 const app = express();
 
 app
-  .use('/client', express.static('../render_client_v3/build'))
+  // .use('/', express.static('../render_client_v3/build'))
   .get('/getpage/', toRequestHandler(getWebSiteHandler))
   .listen(3021, () =>
     console.log('Express listening on port 3021.')

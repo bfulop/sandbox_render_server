@@ -1,25 +1,16 @@
-import {
-  task as T,
-  reader as R,
-  function as F,
-} from 'fp-ts';
-import {
-  map,
-  filter,
-  windowWhen,
-  mergeAll,
-  take,
-  switchMap,
-  startWith,
-  pairwise,
-} from 'rxjs/operators';
-import { Observable } from 'rxjs';
 import DiffMatchPatch from 'diff-match-patch';
-import type { PrimaryData } from './server';
+import {
+    function as F, reader as R
+} from 'fp-ts';
+import { fromTask } from 'fp-ts-rxjs/lib/Observable';
+import { Observable } from 'rxjs';
+import {
+    filter, map, mergeAll, pairwise, startWith, switchMap, take, windowWhen
+} from 'rxjs/operators';
+import { DiffMessage } from './codecs';
 import type { DOMString } from './getBrowserPage';
 import { getPageContent } from './getBrowserPage';
-import { fromTask } from 'fp-ts-rxjs/es6/Observable';
-import { DiffMessage } from './codecs';
+import type { PrimaryData } from './server';
 
 const diffEngine = new DiffMatchPatch.diff_match_patch();
 
@@ -42,7 +33,7 @@ const domRequests$ = (): R.Reader<PrimaryData, Observable<number>> => (
 };
 
 const domStrings$ = (r: Observable<number>) => (env: PrimaryData) =>
-  r.pipe(switchMap(():T.Task<string> => fromTask(getPageContent(env.client.page))));
+  r.pipe(switchMap(():Observable<string> => fromTask(getPageContent(env.client.page))));
 
 const diffWorkflow : R.Reader<PrimaryData, Observable<DOMString>> =
   F.pipe(

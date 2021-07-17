@@ -6,8 +6,8 @@ import {
   json
 } from 'fp-ts';
 import { UUID } from 'io-ts-types';
-import { filterMap, map as mapObs } from 'fp-ts-rxjs/es6/Observable';
-import * as D from 'io-ts/es6/Decoder';
+import { filterMap, map as mapObs } from 'fp-ts-rxjs/lib/Observable';
+import * as D from 'io-ts/lib/Decoder';
 import type { Page } from 'playwright';
 import { fromEvent, Observable } from 'rxjs';
 import type WebSocket from 'ws';

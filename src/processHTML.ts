@@ -1,9 +1,9 @@
 import * as parse5 from 'parse5';
 import type { CommentNode } from 'parse5';
-import * as Decoder  from 'io-ts/es6/Decoder';
+import * as Decoder  from 'io-ts/lib/Decoder';
 import { io as IO, tree as Tree, either as E, array as A, option as O } from 'fp-ts';
 import * as MO from 'monocle-ts';
-import { pipe, identity } from 'fp-ts/es6/function';
+import { function as F } from 'fp-ts';
 import * as treeAdaptor from './libs/tree-adapter-custom.js';
 import type { DOMString } from './getBrowserPage';
 
@@ -19,7 +19,7 @@ const htmlsimple = '<!DOCTYPE html><html><head></head><body><script>runCrash()</
 
 const parsed = parseDOMStringWithoutScripts(htmlsimple)();
 
-export const cleanHTML = (d: DOMString): IO.IO<DOMString> => () => pipe(
+export const cleanHTML = (d: DOMString): IO.IO<DOMString> => () => F.pipe(
   d,
   parseDOMStringWithoutScripts,
   s => parse5.serialize(s())

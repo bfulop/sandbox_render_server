@@ -1,5 +1,5 @@
 import { reader as R, task as T, function as F, option as O } from 'fp-ts';
-import { fromTask, filterMap, map as mapObs } from 'fp-ts-rxjs/es6/Observable';
+import { fromTask, filterMap, map as mapObs } from 'fp-ts-rxjs/lib/Observable';
 import type { Page } from 'playwright/types/types';
 import { Observable } from 'rxjs';
 import { filter, switchMap } from 'rxjs/operators';
