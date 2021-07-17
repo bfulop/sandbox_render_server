@@ -1,5 +1,7 @@
 # The server component of the Sandboxed Renderer
 
+See a [video demo](https://www.youtube.com/watch?v=a8Fpy4dadf0)
+
 ## Goals
 
 1. learn and practice fp-ts and functional programming techniques
